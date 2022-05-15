@@ -1,0 +1,324 @@
+<html>
+	<body>
+		<input type="text" id="filter" placeholder="filter">
+		<table>
+			<thead>
+				<tr>
+					<th class="item">ITEM</th>
+					<th class="macro">
+						CARB
+						<div class="sorting">
+							<div><i class="sort ascending active" id="carb"></i></div><i class="sort descending" id="carb"></i>
+						</div>
+					</th>
+					<th class="macro">
+						PROTEIN
+						<div class="sorting">
+							<div><i class="sort ascending" id="protein"></i></div><i class="sort descending" id="protein"></i>
+						</div>
+					</th>
+					<th class="macro">
+						FAT
+						<div class="sorting">
+							<div><i class="sort ascending" id="fat"></i></div><i class="sort descending" id="fat"></i>
+						</div>
+					</th>
+					<th class="macro">CALORIES</th>
+				</tr>
+			</thead>
+			<tbody id="table-body"></tbody>
+		</table>
+		<div id="notes">
+			<ul>
+				<li>Filter textbox filter the items by maintaining sorting</li>
+				<li>Each item contains carb, protein and fat values</li>
+				<li>Last column is the total calories of each item calculated as <mark>(carb x 4) + (protein x 4) + (fat x 9)</mark></li>
+				<li>Values with white text are for the given weight/quantity</li>
+				<li>Values with red text are for the calculated weight/quantity provided in textbox</li>
+				<li>Weight is calculated by grams</li>
+				<li>Only carb, protein and fat can be sorted by ascending or descending</li>
+				<li>Only single sorting can be performed at a time</li>
+				<li>Carb is sorted by default</li>
+			</ul>
+		</div>
+	</body>
+</html>
+
+
+<script>
+	let _filteredList;
+	let _sortedList;
+	let _sortBy = 'carb';
+	let _isSortAscending = true;
+
+	const _list = [
+		{ item: '1 banana', carb: 23, protein: 1, fat: 0, isQuantity: true },
+		{ item: '1 date', carb: 5, protein: 0, fat: 0, isQuantity: true },
+		{ item: '1 whole egg', carb: 1, protein: 6, fat: 5, isQuantity: true },
+		{ item: '1 egg white', carb: 0, protein: 4, fat: 0, isQuantity: true },
+		{ item: '1 spoon peanut butter', carb: 4, protein: 4, fat: 8, isQuantity: true },
+		{ item: '100g oats', carb: 69, protein: 11, fat: 10, isQuantity: false },
+		{ item: '100g quinoa', carb: 64, protein: 14, fat: 6, isQuantity: false },
+		{ item: '100g brown rice', carb: 74, protein: 9, fat: 3, isQuantity: false },
+		{ item: '1 medium cucumber', carb: 10, protein: 0, fat: 0, isQuantity: true },
+		{ item: '1 apple', carb: 25, protein: 0, fat: 0, isQuantity: true },
+		{ item: '1 orange', carb: 15, protein: 0, fat: 0, isQuantity: true },
+		{ item: '100g green peas', carb: 17, protein: 6, fat: 0, isQuantity: false },
+		{ item: '100g rajma', carb: 60, protein: 24, fat: 0, isQuantity: false },
+		{ item: '100g kabuli chana', carb: 61, protein: 19, fat: 6, isQuantity: false },
+		{ item: '1 medium tomato', carb: 5, protein: 0, fat: 0, isQuantity: true },
+		{ item: '1 medium onion', carb: 10, protein: 0, fat: 0, isQuantity: true },
+		{ item: '100g carrot', carb: 10, protein: 0, fat: 0, isQuantity: false },
+		{ item: '100g curd', carb: 5, protein: 3, fat: 4, isQuantity: false },
+		{ item: '100ml milk', carb: 5, protein: 3, fat: 3, isQuantity: false },
+		{ item: '100g almond', carb: 21, protein: 21, fat: 50, isQuantity: false },
+		{ item: '100g walnut', carb: 14, protein: 15, fat: 65, isQuantity: false },
+		{ item: '100g cashew', carb: 32, protein: 18, fat: 44, isQuantity: false },
+		{ item: '100g pistachio', carb: 28, protein: 20, fat: 45, isQuantity: false },
+		{ item: '100g peanut', carb: 16, protein: 26, fat: 50, isQuantity: false },
+		{ item: '100g raisin', carb: 80, protein: 0, fat: 0, isQuantity: false },
+		{ item: '100g chia seed', carb: 42, protein: 16, fat: 32, isQuantity: false },
+		{ item: '100g flax seed', carb: 30, protein: 18, fat: 42, isQuantity: false },
+		{ item: '1 whole wheat bread (25g)', carb: 12, protein: 2, fat: 1, isQuantity: true },
+		{ item: '100g toor daal', carb: 64, protein: 22, fat: 2, isQuantity: false },
+		{ item: '100g potato', carb: 17, protein: 2, fat: 0, isQuantity: false },
+		{ item: '100g chicken breast', carb: 0, protein: 22, fat: 3, isQuantity: false },
+		{ item: '100g sweet potato', carb: 21, protein: 2, fat: 0, isQuantity: false },
+		{ item: '1 kiwi', carb: 10, protein: 0, fat: 0, isQuantity: true },
+		{ item: '100g green peas', carb: 16, protein: 5, fat: 0, isQuantity: false },
+	];
+
+	window.onload = () => {
+		updateTable();
+	};
+
+	const filterInputElement = document.getElementById('filter');
+	filterInputElement.addEventListener('keyup', () => updateTable());
+
+	Array.from(document.querySelectorAll('.sort')).forEach(el => el.addEventListener('click', () => {
+		_sortBy = el.id;
+		_isSortAscending = Array.from(el.classList).includes('ascending');
+		updateTable();
+
+		document.getElementsByClassName('sort active').item(0).classList.remove('active');
+		el.classList.add('active');
+	}));
+
+	function sortList() {
+		_sortedList = filterInputElement.value ? [..._filteredList] : [..._list];
+
+		if (_isSortAscending) {
+			_sortedList.sort((x, y) => x[_sortBy] - y[_sortBy]);
+		} else {
+			_sortedList.sort((x, y) => y[_sortBy] - x[_sortBy]);
+		}
+
+		updateTable(true);
+	}
+
+	function updateTable(isSortCall = false) {
+		const tbl = document.getElementById('table-body');
+		tbl.innerHTML = '';
+
+		if (isSortCall) {
+			_sortedList.forEach((x, index) => mapRows(tbl, x, index));
+		} else {
+			_filteredList = !filterInputElement.value || filterInputElement.value === ''
+				? [..._list]
+				:  _list.filter(l => l.item.includes(filterInputElement.value));
+
+			_filteredList.forEach((x, index) => mapRows(tbl, x, index));
+
+			sortList();
+		}
+	}
+
+	function mapRows(tbl, currentItem, index) {
+		const tr = tbl.insertRow();
+
+		const carb = currentItem.carb;
+		const protein = currentItem.protein;
+		const fat = currentItem.fat;
+		const calories = (carb * 4) + (protein * 4) + (fat * 9);
+
+		tr.insertCell(0).innerHTML =
+			`<input type="text" id="calculator"
+			onkeyup="updateMacros(this.value, ${carb}, ${protein}, ${fat}, ${currentItem.isQuantity}, ${index})">
+			${currentItem.item}`;
+		tr.insertCell(1).innerHTML = `${carb}<hr/><span id="carb${index}">${carb}</span>`;
+		tr.insertCell(2).innerHTML = `${protein}<hr/><span id="protein${index}">${protein}</span>`;
+		tr.insertCell(3).innerHTML = `${fat}<hr/><span id="fat${index}">${fat}</span>`;
+		tr.insertCell(4).innerHTML = `${calories}<hr/><span id="calories${index}">${calories}</span>`;
+	}
+
+	function updateMacros(multiplier, carb, protein, fat, isQuantity, index) {
+		let newCarb = carb;
+		let newProtein = protein;
+		let newFat = fat;
+
+		if (multiplier > 0) {
+			if (isQuantity) {
+				newCarb = +(multiplier * carb).toFixed(2);
+				newProtein = +(multiplier * protein).toFixed(2);
+				newFat = +(multiplier * fat).toFixed(2);
+			} else {
+				newCarb = +((multiplier * carb) / 100).toFixed(2);
+				newProtein = +((multiplier * protein) / 100).toFixed(2);
+				newFat = +((multiplier * fat) / 100).toFixed(2);
+			}
+		}
+
+		document.getElementById(`carb${index}`).textContent = newCarb;
+		document.getElementById(`protein${index}`).textContent = newProtein;
+		document.getElementById(`fat${index}`).textContent = newFat;
+		document.getElementById(`calories${index}`).textContent = +((newCarb * 4) + (newProtein * 4) + (newFat * 9)).toFixed(2);
+	}
+</script>
+
+
+<style>
+	html {
+		overflow-x: hidden;
+		background: black;
+		background-size: 100%;
+	}
+
+	::-webkit-scrollbar {
+		width: 0;
+	}
+
+	body {
+		display: flex;
+		align-items: center;
+		flex-direction: column;
+		background-size: contain;
+		font-family: sans-serif;
+		margin: 50px 0;
+	}
+
+	#filter {
+		width: 80%;
+		margin-bottom: 20px;
+		height: 50px;
+		border-radius: 10px;
+		background: transparent;
+		border: 2px solid rgba(255, 255, 255, 0.5);
+		caret-color: rgba(255, 255, 255, 0.5);
+		color: #fff;
+		padding: 20px 10px;
+		font-size: 30px;
+		outline: none;
+	}
+
+	table {
+		width: 80%;
+		border-collapse: collapse;
+		overflow: hidden;
+		box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+		border-radius: 10px;
+	}
+
+	th {
+		padding: 15px;
+		background-color: rgba(255, 255, 255, 0.5);
+		color: #000;
+		font-size: 20px;
+	}
+
+	td {
+		padding: 15px;
+		text-align: center;
+		color: #fff;
+		font-size: 17px;
+	}
+
+	tr td:first-child {
+		text-align: left;
+	}
+
+	tr:nth-child(even) {
+		background-color: rgba(255, 255, 255, 0.1);
+	}
+
+	.item {
+		width: 40%;
+	}
+
+	.macro {
+		width: 15%;
+	}
+
+	hr {
+		height: 1px;
+		width: 80px;
+		border: none;
+		background: rgba(255, 255, 255, 0.5);
+	}
+
+	#calculator {
+		height: 30px;
+		width: 60px;
+		border-radius: 10px;
+		background: transparent;
+		border: 2px solid rgba(255, 255, 255, 0.5);
+		caret-color: rgba(255, 255, 255, 0.5);
+		color: #fff;
+		padding: 20px 10px;
+		font-size: 17px;
+		outline: none;
+		margin-right: 10px;
+		text-align: center;
+	}
+
+	span[id^='carb'],
+	span[id^='protein'],
+	span[id^='fat'],
+	span[id^='calories'] {
+		color: red;
+	}
+
+	.sorting {
+		display: inline-flex;
+		flex-direction: column;
+		margin-left: 5px;
+		transform: translateY(-7px);
+	}
+
+	.sort {
+		display: inline-block;
+		content: ' ';
+		border-bottom: 2px solid white;
+		border-right: 2px solid white;
+		height: 5px;
+		width: 5px;
+		cursor: pointer;
+	}
+
+	.sort.ascending {
+		margin-bottom: 5px;
+		transform: rotate(225deg);
+	}
+
+	.sort.descending {
+		margin-top: 5px;
+		transform: rotate(45deg);
+	}
+
+	.sort.active {
+		border-bottom: 2px solid black;
+		border-right: 2px solid black;
+	}
+
+	#notes {
+		width: 80%;
+		color: #fff;
+		font-size: 20px;
+		line-height: 30px;
+	}
+
+	mark {
+		background-color: #9ca546;
+		padding: 3px;
+		border-radius: 10px;
+	}
+</style>
